@@ -1,0 +1,34 @@
+{
+  "device_pack": "device_pack_py32f0xx",
+  "device_include": ["CMSIS/Core/Include", "CMSIS/Device/Include"],
+  
+  "build": {
+    "cpu": "cortex-m0plus",
+    "extra_flags": "-DXL32F001 -DPY32F002B -DPY32F002BX5",
+    "f_cpu": "24000000L",
+    "mcu": "py32f002bx5",
+    "product_line": "py32f002bx5",
+    "startup_file": "startup_py32f002bx5.s"
+    "system_file": "system_py32f0xx.c"
+    "use_device_pack_startup": true,
+    "use_device_pack_system": false
+  },
+  "debug": {
+    "openocd_target": "stm32f0x",
+    "svd_name": "py32f002bxx.svd"
+  },
+  "frameworks": [
+  ],
+  "name": "PY32F002Bx5 (3k RAM. 24k Flash)",
+  "upload": {
+    "maximum_ram_size": 6144,
+    "maximum_size": 16384,
+    "protocol": "cmsis-dap",
+    "protocols": [
+      "cmsis-dap",
+      "jlink"
+    ]
+  },
+  "url": "https://www.st.com/en/microcontrollers-microprocessors/stm32f103c4.html",
+  "vendor": "Generic"
+}

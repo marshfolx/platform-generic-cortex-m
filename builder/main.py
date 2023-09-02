@@ -17,8 +17,7 @@ from platform import system
 from os import makedirs
 from os.path import basename, isdir, join
 
-from SCons.Script import (ARGUMENTS, COMMAND_LINE_TARGETS, AlwaysBuild,
-                          Builder, Default, DefaultEnvironment)
+from SCons.Script import ARGUMENTS, COMMAND_LINE_TARGETS, AlwaysBuild, Builder, Default, DefaultEnvironment
 
 from platformio.public import list_serial_ports
 
@@ -55,15 +54,12 @@ env.Replace(
     OBJCOPY="arm-none-eabi-objcopy",
     RANLIB="arm-none-eabi-gcc-ranlib",
     SIZETOOL="arm-none-eabi-size",
-
     ARFLAGS=["rc"],
-
     SIZEPROGREGEXP=r"^(?:\.text|\.data|\.rodata|\.text.align|\.ARM.exidx)\s+(\d+).*",
     SIZEDATAREGEXP=r"^(?:\.data|\.bss|\.noinit)\s+(\d+).*",
     SIZECHECKCMD="$SIZETOOL -A -d $SOURCES",
     SIZEPRINTCMD='$SIZETOOL -B -d $SOURCES',
-
-    PROGSUFFIX=".elf"
+    PROGSUFFIX=".elf",
 )
 
 # Allow user to override via pre:script
@@ -73,44 +69,34 @@ if env.get("PROGNAME", "program") == "program":
 env.Append(
     BUILDERS=dict(
         ElfToBin=Builder(
-            action=env.VerboseAction(" ".join([
-                "$OBJCOPY",
-                "-O",
-                "binary",
-                "$SOURCES",
-                "$TARGET"
-            ]), "Building $TARGET"),
-            suffix=".bin"
+            action=env.VerboseAction(" ".join(["$OBJCOPY", "-O", "binary", "$SOURCES", "$TARGET"]), "Building $TARGET"),
+            suffix=".bin",
         ),
         ElfToHex=Builder(
-            action=env.VerboseAction(" ".join([
-                "$OBJCOPY",
-                "-O",
-                "ihex",
-                "-R",
-                ".eeprom",
-                "$SOURCES",
-                "$TARGET"
-            ]), "Building $TARGET"),
-            suffix=".hex"
-        )
+            action=env.VerboseAction(
+                " ".join(["$OBJCOPY", "-O", "ihex", "-R", ".eeprom", "$SOURCES", "$TARGET"]), "Building $TARGET"
+            ),
+            suffix=".hex",
+        ),
     )
 )
 
-if not env.get("PIOFRAMEWORK"):
-    env.SConscript("frameworks/_bare.py")
+# if not env.get("PIOFRAMEWORK"):
+#     env.SConscript("frameworks/_bare.py")
+
+env.SConscript("frameworks/cortex_m.py")
 
 #
 # Target: Build executable and linkable firmware
 #
 
-frameworks = env.get("PIOFRAMEWORK", [])
-if "zephyr" in frameworks:
-    env.SConscript(
-        join(platform.get_package_dir(
-            "framework-zephyr"), "scripts", "platformio", "platformio-build-pre.py"),
-        exports={"env": env}
-    )
+# frameworks = env.get("PIOFRAMEWORK", [])
+# if "zephyr" in frameworks:
+#     env.SConscript(
+#         join(platform.get_package_dir(
+#             "framework-zephyr"), "scripts", "platformio", "platformio-build-pre.py"),
+#         exports={"env": env}
+#     )
 
 target_elf = None
 if "nobuild" in COMMAND_LINE_TARGETS:
@@ -128,9 +114,7 @@ target_buildprog = env.Alias("buildprog", target_firm, target_firm)
 # Target: Print binary size
 #
 
-target_size = env.Alias(
-    "size", target_elf,
-    env.VerboseAction("$SIZEPRINTCMD", "Calculating size $SOURCE"))
+target_size = env.Alias("size", target_elf, env.VerboseAction("$SIZEPRINTCMD", "Calculating size $SOURCE"))
 AlwaysBuild(target_size)
 
 #
@@ -145,7 +129,7 @@ upload_actions = []
 if upload_protocol == "mbed":
     upload_actions = [
         env.VerboseAction(env.AutodetectUploadPort, "Looking for upload disk..."),
-        env.VerboseAction(env.UploadToDisk, "Uploading $SOURCE")
+        env.VerboseAction(env.UploadToDisk, "Uploading $SOURCE"),
     ]
 
 elif upload_protocol.startswith("blackmagic"):
@@ -154,20 +138,25 @@ elif upload_protocol.startswith("blackmagic"):
         UPLOADERFLAGS=[
             "-nx",
             "--batch",
-            "-ex", "target extended-remote $UPLOAD_PORT",
-            "-ex", "monitor %s_scan" %
-            ("jtag" if upload_protocol == "blackmagic-jtag" else "swdp"),
-            "-ex", "attach 1",
-            "-ex", "load",
-            "-ex", "compare-sections",
-            "-ex", "kill"
+            "-ex",
+            "target extended-remote $UPLOAD_PORT",
+            "-ex",
+            "monitor %s_scan" % ("jtag" if upload_protocol == "blackmagic-jtag" else "swdp"),
+            "-ex",
+            "attach 1",
+            "-ex",
+            "load",
+            "-ex",
+            "compare-sections",
+            "-ex",
+            "kill",
         ],
-        UPLOADCMD="$UPLOADER $UPLOADERFLAGS $SOURCE"
+        UPLOADCMD="$UPLOADER $UPLOADERFLAGS $SOURCE",
     )
     upload_source = target_elf
     upload_actions = [
         env.VerboseAction(env.AutodetectUploadPort, "Looking for BlackMagic port..."),
-        env.VerboseAction("$UPLOADCMD", "Uploading $SOURCE")
+        env.VerboseAction("$UPLOADCMD", "Uploading $SOURCE"),
     ]
 
 elif upload_protocol.startswith("jlink"):
@@ -177,13 +166,7 @@ elif upload_protocol.startswith("jlink"):
         if not isdir(build_dir):
             makedirs(build_dir)
         script_path = join(build_dir, "upload.jlink")
-        commands = [
-            "h",
-            "loadbin %s, %s" % (source, board.get(
-                "upload.offset_address", "0x08000000")),
-            "r",
-            "q"
-        ]
+        commands = ["h", "loadbin %s, %s" % (source, board.get("upload.offset_address", "0x08000000")), "r", "q"]
         with open(script_path, "w") as fp:
             fp.write("\n".join(commands))
         return script_path
@@ -192,13 +175,18 @@ elif upload_protocol.startswith("jlink"):
         __jlink_cmd_script=_jlink_cmd_script,
         UPLOADER="JLink.exe" if system() == "Windows" else "JLinkExe",
         UPLOADERFLAGS=[
-            "-device", board.get("debug", {}).get("jlink_device"),
-            "-speed", env.GetProjectOption("debug_speed", "4000"),
-            "-if", ("jtag" if upload_protocol == "jlink-jtag" else "swd"),
-            "-autoconnect", "1",
-            "-NoGui", "1"
+            "-device",
+            board.get("debug", {}).get("jlink_device"),
+            "-speed",
+            env.GetProjectOption("debug_speed", "4000"),
+            "-if",
+            ("jtag" if upload_protocol == "jlink-jtag" else "swd"),
+            "-autoconnect",
+            "1",
+            "-NoGui",
+            "1",
         ],
-        UPLOADCMD='$UPLOADER $UPLOADERFLAGS -CommanderScript "${__jlink_cmd_script(__env__, SOURCE)}"'
+        UPLOADCMD='$UPLOADER $UPLOADERFLAGS -CommanderScript "${__jlink_cmd_script(__env__, SOURCE)}"',
     )
     upload_actions = [env.VerboseAction("$UPLOADCMD", "Uploading $SOURCE")]
 
@@ -209,119 +197,117 @@ elif upload_protocol == "dfu":
     pid = hwids[0][1]
 
     # default tool for all boards with embedded DFU bootloader over USB
-    _upload_tool = '"%s"' % join(platform.get_package_dir(
-        "tool-dfuutil") or "", "bin", "dfu-util")
+    _upload_tool = '"%s"' % join(platform.get_package_dir("tool-dfuutil") or "", "bin", "dfu-util")
     _upload_flags = [
-        "-d", ",".join(["%s:%s" % (hwid[0], hwid[1]) for hwid in hwids]),
-        "-a", "0", "-s",
-        "%s:leave" % board.get("upload.offset_address", "0x08000000"), "-D"
+        "-d",
+        ",".join(["%s:%s" % (hwid[0], hwid[1]) for hwid in hwids]),
+        "-a",
+        "0",
+        "-s",
+        "%s:leave" % board.get("upload.offset_address", "0x08000000"),
+        "-D",
     ]
 
     upload_actions = [env.VerboseAction("$UPLOADCMD", "Uploading $SOURCE")]
 
-    if "arduino" in frameworks:
-        if env.subst("$BOARD").startswith(("portenta", "opta")):
-            upload_actions.insert(
-                0,
-                env.VerboseAction(BeforeUpload, "Looking for upload port...")
-            )
-        elif board.get("build.mcu").startswith("stm32f103"):
-            # F103 series doesn't have embedded DFU over USB
-            # stm32duino bootloader (v1, v2) is used instead
-            def __configure_upload_port(env):
-                return basename(env.subst("$UPLOAD_PORT"))
+    # if "arduino" in frameworks:
+    #     if env.subst("$BOARD").startswith(("portenta", "opta")):
+    #         upload_actions.insert(
+    #             0,
+    #             env.VerboseAction(BeforeUpload, "Looking for upload port...")
+    #         )
+    #     elif board.get("build.mcu").startswith("stm32f103"):
+    #         # F103 series doesn't have embedded DFU over USB
+    #         # stm32duino bootloader (v1, v2) is used instead
+    #         def __configure_upload_port(env):
+    #             return basename(env.subst("$UPLOAD_PORT"))
 
-            _upload_tool = "maple_upload"
-            _upload_flags = [
-                "${__configure_upload_port(__env__)}",
-                board.get("upload.boot_version", 2),
-                "%s:%s" % (vid[2:], pid[2:])
-            ]
+    #         _upload_tool = "maple_upload"
+    #         _upload_flags = [
+    #             "${__configure_upload_port(__env__)}",
+    #             board.get("upload.boot_version", 2),
+    #             "%s:%s" % (vid[2:], pid[2:])
+    #         ]
 
-            env.Replace(__configure_upload_port=__configure_upload_port)
+    #         env.Replace(__configure_upload_port=__configure_upload_port)
 
-            upload_actions.insert(
-                0, env.VerboseAction(env.AutodetectUploadPort,
-                                     "Looking for upload port..."))
+    #         upload_actions.insert(
+    #             0, env.VerboseAction(env.AutodetectUploadPort,
+    #                                  "Looking for upload port..."))
 
     if "dfu-util" in _upload_tool:
         # Add special DFU header to the binary image
         env.AddPostAction(
             join("$BUILD_DIR", "${PROGNAME}.bin"),
             env.VerboseAction(
-                " ".join([
-                    '"%s"' % join(platform.get_package_dir("tool-dfuutil") or "",
-                         "bin", "dfu-suffix"),
-                    "-v %s" % vid,
-                    "-p %s" % pid,
-                    "-d 0xffff", "-a", "$TARGET"
-                ]), "Adding dfu suffix to ${PROGNAME}.bin"))
+                " ".join(
+                    [
+                        '"%s"' % join(platform.get_package_dir("tool-dfuutil") or "", "bin", "dfu-suffix"),
+                        "-v %s" % vid,
+                        "-p %s" % pid,
+                        "-d 0xffff",
+                        "-a",
+                        "$TARGET",
+                    ]
+                ),
+                "Adding dfu suffix to ${PROGNAME}.bin",
+            ),
+        )
 
     env.Replace(
         UPLOADER=_upload_tool,
         UPLOADERFLAGS=_upload_flags,
-        UPLOADCMD='$UPLOADER $UPLOADERFLAGS "${SOURCE.get_abspath()}"')
+        UPLOADCMD='$UPLOADER $UPLOADERFLAGS "${SOURCE.get_abspath()}"',
+    )
 
     upload_source = target_firm
 
 elif upload_protocol == "serial":
+
     def __configure_upload_port(env):
         return env.subst("$UPLOAD_PORT")
 
     env.Replace(
         __configure_upload_port=__configure_upload_port,
-        UPLOADER=join(
-            '"%s"' % platform.get_package_dir("tool-stm32duino") or "",
-            "stm32flash", "stm32flash"),
+        UPLOADER=join('"%s"' % platform.get_package_dir("tool-stm32duino") or "", "stm32flash", "stm32flash"),
         UPLOADERFLAGS=[
-            "-g", board.get("upload.offset_address", "0x08000000"),
-            "-b", env.subst("$UPLOAD_SPEED") or "115200", "-w"
+            "-g",
+            board.get("upload.offset_address", "0x08000000"),
+            "-b",
+            env.subst("$UPLOAD_SPEED") or "115200",
+            "-w",
         ],
-        UPLOADCMD='$UPLOADER $UPLOADERFLAGS "$SOURCE" "${__configure_upload_port(__env__)}"'
+        UPLOADCMD='$UPLOADER $UPLOADERFLAGS "$SOURCE" "${__configure_upload_port(__env__)}"',
     )
 
     upload_actions = [
         env.VerboseAction(env.AutodetectUploadPort, "Looking for upload port..."),
-        env.VerboseAction("$UPLOADCMD", "Uploading $SOURCE")
+        env.VerboseAction("$UPLOADCMD", "Uploading $SOURCE"),
     ]
 
 elif upload_protocol == "hid":
+
     def __configure_upload_port(env):
         return basename(env.subst("$UPLOAD_PORT"))
 
     env.Replace(
         __configure_upload_port=__configure_upload_port,
         UPLOADER="hid-flash",
-        UPLOADCMD='$UPLOADER "$SOURCES" "${__configure_upload_port(__env__)}"'
+        UPLOADCMD='$UPLOADER "$SOURCES" "${__configure_upload_port(__env__)}"',
     )
     upload_actions = [
         env.VerboseAction(env.AutodetectUploadPort, "Looking for upload port..."),
-        env.VerboseAction("$UPLOADCMD", "Uploading $SOURCE")
+        env.VerboseAction("$UPLOADCMD", "Uploading $SOURCE"),
     ]
 
 elif upload_protocol in debug_tools:
-    openocd_args = [
-        "-d%d" % (2 if int(ARGUMENTS.get("PIOVERBOSE", 0)) else 1)
-    ]
-    openocd_args.extend(
-        debug_tools.get(upload_protocol).get("server").get("arguments", []))
+    openocd_args = ["-d%d" % (2 if int(ARGUMENTS.get("PIOVERBOSE", 0)) else 1)]
+    openocd_args.extend(debug_tools.get(upload_protocol).get("server").get("arguments", []))
     if env.GetProjectOption("debug_speed", ""):
-        openocd_args.extend(
-            ["-c", "adapter speed %s" % env.GetProjectOption("debug_speed")]
-        )
-    openocd_args.extend([
-        "-c", "program {$SOURCE} %s verify reset; shutdown;" %
-        board.get("upload.offset_address", "")
-    ])
-    openocd_args = [
-        f.replace("$PACKAGE_DIR",
-                  platform.get_package_dir("tool-openocd") or "")
-        for f in openocd_args
-    ]
-    env.Replace(
-        UPLOADER="openocd",
-        UPLOADERFLAGS=openocd_args,
-        UPLOADCMD="$UPLOADER $UPLOADERFLAGS")
+        openocd_args.extend(["-c", "adapter speed %s" % env.GetProjectOption("debug_speed")])
+    openocd_args.extend(["-c", "program {$SOURCE} %s verify reset; shutdown;" % board.get("upload.offset_address", "")])
+    openocd_args = [f.replace("$PACKAGE_DIR", platform.get_package_dir("tool-openocd") or "") for f in openocd_args]
+    env.Replace(UPLOADER="openocd", UPLOADERFLAGS=openocd_args, UPLOADCMD="$UPLOADER $UPLOADERFLAGS")
 
     if not board.get("upload").get("offset_address"):
         upload_source = target_elf
@@ -341,8 +327,10 @@ AlwaysBuild(env.Alias("upload", upload_source, upload_actions))
 #
 
 if any("-Wl,-T" in f for f in env.get("LINKFLAGS", [])):
-    print("Warning! '-Wl,-T' option for specifying linker scripts is deprecated. "
-          "Please use 'board_build.ldscript' option in your 'platformio.ini' file.")
+    print(
+        "Warning! '-Wl,-T' option for specifying linker scripts is deprecated. "
+        "Please use 'board_build.ldscript' option in your 'platformio.ini' file."
+    )
 
 #
 # Default targets
